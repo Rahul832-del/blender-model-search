@@ -1,0 +1,25 @@
+{
+    "collections": [
+        {
+            "name": "Decorative 190",
+            "models_folder": "Decorative 190 Blend Product",
+            "renders_folder": "Decorative 190 render product",
+            "tags_folder": "Decorative 190 Product",
+            "embeddings_folder": "Decorative 190 Product"
+        },
+        {
+            "name": "Decorative 1417",
+            "models_folder": "Decorative 1447 Blend Product",
+            "renders_folder": "Decorative 1417 render product",
+            "tags_folder": "Decorative 1417 Product",
+            "embeddings_folder": "Decorative 1417 Product"
+        },
+        {
+            "name": "Test_models",
+            "models_folder": "Model_Test",
+            "renders_folder": "Render_Test",
+            "tags_folder": "Tagged_Test",
+            "embeddings_folder": "embed_test"
+        }
+    ]
+}

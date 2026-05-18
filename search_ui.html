@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Model Search</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0C0C0F; --surface: #16161A; --surface2: #1E1E24;
+  --border: #2A2A32; --text: #E8E6E3; --text2: #94929D;
+  --accent: #6C63FF; --green: #4ADE80; --amber: #FBBF24; --pink: #F472B6;
+  --teal: #4ECDC4; --radius: 12px;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+.header { text-align: center; margin-bottom: 24px; }
+.header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 6px; }
+.header h1 span { color: var(--accent); }
+.header p { color: var(--text2); font-size: 14px; }
+
+.status-bar { display: flex; justify-content: center; margin-bottom: 20px; font-size: 12px; color: var(--text2); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.status-dot.ok { background: var(--green); }
+.status-dot.err { background: #EF4444; }
+
+/* CATEGORY FILTERS */
+.filter-section { max-width: 800px; margin: 0 auto 20px; }
+.filter-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip .count { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.7; margin-left: 3px; }
+
+/* COMBINED SEARCH BOX */
+.search-panel {
+  max-width: 700px; margin: 0 auto 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  transition: border-color 0.2s;
+}
+.search-panel:focus-within { border-color: var(--accent); }
+
+.search-row { display: flex; gap: 10px; align-items: center; }
+.search-row input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; color: var(--text);
+  font-family: inherit; font-size: 14px; outline: none;
+  transition: border-color 0.2s;
+}
+.search-row input:focus { border-color: var(--accent); }
+.search-row input::placeholder { color: var(--text2); }
+
+.search-btn {
+  padding: 10px 24px; background: var(--accent); color: #fff;
+  border: none; border-radius: 8px; font-family: inherit;
+  font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.search-btn:hover { opacity: 0.85; }
+
+/* SUGGESTIONS DROPDOWN */
+.suggestions {
+  position: absolute; top: 100%; left: 0; right: 60px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; margin-top: 4px; z-index: 100;
+  max-height: 240px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.suggestions.hidden { display: none; }
+.sug-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px; cursor: pointer; font-size: 13px;
+  transition: background 0.15s;
+}
+.sug-item:hover { background: var(--surface2); }
+.sug-item .sug-tag { color: var(--text); }
+.sug-item .sug-count { color: var(--text2); font-size: 11px; font-family: var(--font-mono); }
+.sug-label { padding: 6px 14px; font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+
+.clear-all-btn {
+  padding: 10px 14px; background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+  cursor: pointer; transition: all 0.2s;
+}
+.clear-all-btn:hover { border-color: #EF4444; color: #EF4444; }
+
+/* DROP ZONE */
+.drop-zone {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border: 2px dashed var(--border);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s;
+}
+.drop-zone:hover { border-color: var(--accent); background: rgba(108,99,255,0.03); }
+.drop-zone.dragover { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+.drop-icon { font-size: 20px; color: var(--text2); }
+.drop-text { font-size: 12px; color: var(--text2); }
+.drop-browse { color: var(--accent); cursor: pointer; text-decoration: underline; position: relative; }
+.drop-browse input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+
+.image-attach {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.attach-btn {
+  padding: 6px 14px; border-radius: 8px;
+  border: 1px dashed var(--border); background: transparent;
+  color: var(--text2); font-family: inherit; font-size: 12px;
+  cursor: pointer; transition: all 0.2s; position: relative;
+  overflow: hidden;
+}
+.attach-btn:hover { border-color: var(--accent); color: var(--accent); }
+.attach-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.attached-preview {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: 8px; padding: 8px 12px 8px 8px;
+  border: 1px solid var(--border);
+}
+.attached-preview img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+.attached-info { flex: 1; display: flex; flex-direction: column; }
+.attached-info span:first-child { font-size: 12px; color: var(--text); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attached-info span:last-child { font-size: 10px; color: var(--text2); }
+.attached-remove { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.attached-remove:hover { color: #EF4444; }
+
+.search-hint { font-size: 11px; color: var(--text2); margin-top: 8px; opacity: 0.6; }
+.mode-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 500; display: inline-block; margin-left: 8px;
+}
+.mode-hybrid { background: rgba(78,205,196,0.15); color: var(--teal); }
+.mode-text { background: rgba(108,99,255,0.15); color: var(--accent); }
+.mode-image { background: rgba(251,191,36,0.15); color: var(--amber); }
+
+/* LOADING */
+.loading { text-align: center; padding: 48px; color: var(--text2); }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* RESULTS */
+.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.results-header h2 { font-size: 16px; font-weight: 500; }
+.results-header span { color: var(--text2); font-size: 12px; }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+
+.model-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: all 0.2s; cursor: pointer; }
+.model-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.model-card .thumb { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--surface2); display: block; }
+.model-card .info { padding: 10px 12px; }
+.model-card .name { font-size: 12px; font-weight: 500; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.model-card .blend-file { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text2); margin-bottom: 5px; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.model-card .meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.score { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.score-high { background: rgba(74,222,128,0.15); color: var(--green); }
+.score-mid { background: rgba(251,191,36,0.15); color: var(--amber); }
+.score-low { background: rgba(244,114,182,0.15); color: var(--pink); }
+.category-tag { font-size: 10px; color: var(--text2); background: var(--surface2); padding: 2px 6px; border-radius: 4px; }
+.tags-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.tag { font-size: 9px; color: var(--accent); background: rgba(108,99,255,0.1); padding: 1px 5px; border-radius: 3px; }
+
+/* SCORE BREAKDOWN */
+.score-breakdown { display: flex; gap: 4px; margin-top: 4px; }
+.sb-bar { height: 3px; border-radius: 2px; }
+.sb-shape { background: var(--teal); }
+.sb-text { background: var(--accent); }
+.sb-kw { background: var(--amber); }
+
+.empty { text-align: center; padding: 60px 24px; color: var(--text2); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4; }
+.hidden { display: none !important; }
+
+/* LOAD MORE */
+.load-more-btn {
+  padding: 10px 24px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-family: inherit;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  margin: 0 6px;
+}
+.load-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+.load-more-btn.load-all { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+.load-more-btn.load-all:hover { border-color: var(--text2); color: var(--text); }
+.load-more-btn.load-category {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;
+}
+.load-more-btn.load-category:hover { opacity: 0.85; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-header h2 { font-size: 16px; font-weight: 600; }
+.modal-header .blend-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text2); margin-top: 3px; }
+.modal-close { background: none; border: none; color: var(--text2); font-size: 24px; cursor: pointer; padding: 0 6px; }
+.modal-body { padding: 20px; }
+.modal-meta { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.modal-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 14px; }
+.views-label { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.views-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.view-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 2px solid transparent; cursor: pointer; transition: all 0.2s; background: var(--surface2); }
+.view-thumb:hover { border-color: var(--accent); }
+.view-thumb.active { border-color: var(--accent); }
+.view-name { font-size: 9px; color: var(--text2); text-align: center; margin-top: 3px; font-family: 'JetBrains Mono', monospace; }
+.main-preview { width: 100%; max-height: 350px; object-fit: contain; border-radius: 10px; background: var(--bg); margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1><span>3D</span> Model Search</h1>
+    <p>Hybrid search — combine text + image + category for best results</p>
+  </div>
+
+  <div class="status-bar"><span><span class="status-dot" id="statusDot"></span><span id="statusText">Connecting...</span></span></div>
+
+  <!-- Categories -->
+  <div class="filter-section">
+    <div class="filter-label">Filter by category</div>
+    <div class="filter-chips" id="filterChips"></div>
+  </div>
+
+  <!-- Combined search panel -->
+  <div class="search-panel" id="searchPanel">
+    <div class="search-row" style="position: relative;">
+      <input type="text" id="queryInput" placeholder="Type: sink, oven, bag, air conditioner..."
+             onkeydown="if(event.key==='Enter'){hideSuggestions();doSearch()}" oninput="onQueryInput()" autocomplete="off">
+      <button class="search-btn" onclick="hideSuggestions();doSearch()">Search</button>
+      <button class="clear-all-btn" onclick="clearAll()" title="Clear everything">&#10005;</button>
+      <div class="suggestions hidden" id="suggestions"></div>
+    </div>
+
+    <!-- Image area: drag-drop OR preview -->
+    <div class="image-attach">
+      <div id="dropZone" class="drop-zone">
+        <span class="drop-icon">&#128247;</span>
+        <span class="drop-text">Drop image here, paste (Ctrl+V), or <label class="drop-browse">browse<input type="file" accept="image/*" onchange="attachImage(this.files[0])"></label></span>
+      </div>
+      <div id="attachedPreview" class="hidden">
+        <div class="attached-preview">
+          <img id="attachedImg" src="" alt="">
+          <div class="attached-info">
+            <span id="attachedName"></span>
+            <span id="attachedSize"></span>
+          </div>
+          <button class="attached-remove" onclick="removeImage()" title="Remove image">&times;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-hint" id="searchHint">
+      Tip: type a name + drop a reference photo for best results
+    </div>
+  </div>
+
+  <div class="loading hidden" id="loading"><div class="spinner"></div><p>Searching...</p></div>
+
+  <div id="resultsSection" class="hidden">
+    <div class="results-header">
+      <h2 id="resultsTitle">Results</h2>
+      <span id="resultsCount"></span>
+    </div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+  <div class="empty" id="emptyState">
+    <span class="empty-icon">&#128270;</span>
+    <p>Type a product name, attach a reference image, or click a category</p>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div><h2 id="modalTitle"></h2><div class="blend-name" id="modalBlend"></div></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <img class="main-preview" id="modalMainImg" src="" alt="">
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-desc" id="modalDesc"></div>
+      <div class="views-label">All captured views</div>
+      <div class="views-grid" id="modalViewsGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let attachedFile = null;
+let activeCategory = null;
+let lastResults = [];
+let lastTitle = '';
+
+// ── Startup ──
+async function checkHealth() {
+  try {
+    const res = await fetch(API + '/health');
+    const d = await res.json();
+    document.getElementById('statusDot').className = 'status-dot ok';
+    document.getElementById('statusText').textContent = `Connected — ${d.models_loaded} models | Hybrid v2`;
+  } catch(e) {
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'Cannot connect (is search_api.py running?)';
+  }
+}
+checkHealth();
+
+async function loadCategories() {
+  try {
+    const res = await fetch(API + '/categories');
+    const d = await res.json();
+    const c = document.getElementById('filterChips');
+    c.innerHTML = `<button class="chip active" onclick="selectCategory(null,this)">All</button>`;
+    d.categories.forEach(cat => {
+      c.innerHTML += `<button class="chip" onclick="selectCategory('${cat.name}',this)">${cat.name}<span class="count">${cat.count}</span></button>`;
+    });
+  } catch(e) {}
+}
+loadCategories();
+
+// ── Category ──
+function selectCategory(cat, btn) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  activeCategory = cat;
+
+  const query = document.getElementById('queryInput').value.trim();
+  if (lastResults.length > 0 && (query || attachedFile)) {
+    const filtered = cat ? lastResults.filter(r => r.category === cat) : lastResults;
+    renderResults(filtered, lastTitle);
+  } else if (cat) {
+    browseCategory(cat);
+  } else {
+    lastResults = [];
+    document.getElementById('resultsSection').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+  }
+}
+
+async function browseCategory(cat) {
+  showLoading();
+  try {
+    const res = await fetch(`${API}/models?category=${encodeURIComponent(cat)}`);
+    const d = await res.json();
+    const results = d.models.map(m => ({ ...m, score: 100, shape_score: 0, text_score: 0, keyword_score: 100 }));
+    lastResults = [];
+    renderResults(results, `All models in "${cat}"`);
+  } catch(e) { alert('Failed to load.'); }
+  hideLoading();
+}
+
+// ── Suggestions ──
+let suggestTimer = null;
+
+function onQueryInput() {
+  updateHint();
+  // Debounce suggestions — wait 300ms after typing stops
+  clearTimeout(suggestTimer);
+  const q = document.getElementById('queryInput').value.trim();
+  if (q.length < 2) { hideSuggestions(); return; }
+  suggestTimer = setTimeout(() => fetchSuggestions(q), 300);
+}
+
+async function fetchSuggestions(query) {
+  try {
+    const res = await fetch(`${API}/suggest?query=${encodeURIComponent(query)}`);
+    const d = await res.json();
+    const box = document.getElementById('suggestions');
+
+    if (!d.suggestions || d.suggestions.length === 0) {
+      hideSuggestions();
+      return;
+    }
+
+    box.innerHTML = '<div class="sug-label">Related tags</div>';
+    d.suggestions.forEach(s => {
+      box.innerHTML += `<div class="sug-item" onclick="applySuggestion('${s.tag}')">
+        <span class="sug-tag">${s.tag}</span>
+        <span class="sug-count">${s.count} models</span>
+      </div>`;
+    });
+    box.classList.remove('hidden');
+  } catch(e) { hideSuggestions(); }
+}
+
+function applySuggestion(tag) {
+  const input = document.getElementById('queryInput');
+  // If input already has words, append with space
+  const current = input.value.trim();
+  const words = current.split(/\s+/);
+  // Replace the last word with the suggestion
+  words[words.length - 1] = tag;
+  input.value = words.join(' ');
+  hideSuggestions();
+  updateHint();
+  input.focus();
+}
+
+function hideSuggestions() {
+  document.getElementById('suggestions').classList.add('hidden');
+}
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-row')) hideSuggestions();
+});
+function attachImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  attachedFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('attachedImg').src = e.target.result;
+    document.getElementById('attachedName').textContent = file.name;
+    document.getElementById('attachedSize').textContent = (file.size / 1024).toFixed(0) + ' KB';
+    document.getElementById('dropZone').classList.add('hidden');
+    document.getElementById('attachedPreview').classList.remove('hidden');
+    updateHint();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImage() {
+  attachedFile = null;
+  document.getElementById('dropZone').classList.remove('hidden');
+  document.getElementById('attachedPreview').classList.add('hidden');
+  updateHint();
+}
+
+function clearAll() {
+  // Clear text
+  document.getElementById('queryInput').value = '';
+  // Clear image
+  removeImage();
+  // Clear results
+  lastResults = [];
+  lastTitle = '';
+  document.getElementById('resultsSection').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  // Reset category to All
+  activeCategory = null;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  const allChip = document.querySelector('.chip');
+  if (allChip) allChip.classList.add('active');
+  updateHint();
+}
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+const searchPanel = document.getElementById('searchPanel');
+
+// Drag over the drop zone
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) attachImage(e.dataTransfer.files[0]);
+});
+
+// Also allow dragging anywhere on the search panel
+searchPanel.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+searchPanel.addEventListener('dragleave', (e) => {
+  if (!searchPanel.contains(e.relatedTarget)) dropZone.classList.remove('dragover');
+});
+searchPanel.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) attachImage(e.dataTransfer.files[0]);
+});
+
+// Paste from clipboard (Ctrl+V anywhere on page)
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) attachImage(file);
+      break;
+    }
+  }
+});
+
+function updateHint() {
+  const q = document.getElementById('queryInput').value.trim();
+  const hint = document.getElementById('searchHint');
+  if (q && attachedFile) {
+    hint.innerHTML = 'Mode: <span class="mode-badge mode-hybrid">HYBRID</span> — text + image combined (best accuracy)';
+  } else if (q) {
+    hint.innerHTML = 'Mode: <span class="mode-badge mode-text">TEXT</span> — attach an image to also match by shape';
+  } else if (attachedFile) {
+    hint.innerHTML = 'Mode: <span class="mode-badge mode-image">IMAGE</span> — type a name to also match by keywords';
+  } else {
+    hint.textContent = 'Tip: type a name + attach a reference photo for best results';
+  }
+}
+document.getElementById('queryInput').addEventListener('input', updateHint);
+
+// ── Search ──
+async function doSearch() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query && !attachedFile) return;
+
+  showLoading();
+  try {
+    const form = new FormData();
+    if (query) form.append('query', query);
+    if (attachedFile) form.append('file', attachedFile);
+
+    const res = await fetch(`${API}/search/hybrid?top_k=50`, { method: 'POST', body: form });
+    const d = await res.json();
+
+    lastResults = d.results;
+    const modeLabel = d.mode === 'hybrid' ? '🔀 Hybrid' : d.mode === 'text' ? '📝 Text' : '🖼️ Image';
+    lastTitle = `${modeLabel} results for "${query || attachedFile?.name || ''}"`;
+
+    // Show conflict warning if image and text disagree
+    if (d.conflict && d.conflict_msg) {
+      lastTitle = `⚠️ Conflict: ${d.conflict_msg}`;
+    }
+
+    const filtered = activeCategory ? lastResults.filter(r => r.category === activeCategory) : lastResults;
+    renderResults(filtered, lastTitle);
+  } catch(e) { alert('Search failed.'); }
+  hideLoading();
+}
+
+function applySmartThreshold(results) {
+  if (!results.length) return [];
+
+  const sorted = [...results].sort((a, b) => b.score - a.score);
+  const MIN_THRESHOLD = 50;
+
+  if (sorted[0].score < MIN_THRESHOLD) return [];
+
+  const topScore = sorted[0].score;
+
+  // Dynamic threshold = 90% of top score (minimum 50%)
+  // Top=71% → threshold=63.9% → bags (71,67,67,65) pass, shoes (62) cut
+  // Top=88% → threshold=79.2% → only close matches pass
+  // Top=55% → threshold=50%   → minimum floor kicks in
+  const dynamicThreshold = Math.max(topScore * 0.90, MIN_THRESHOLD);
+
+  return sorted.filter(r => r.score >= dynamicThreshold);
+}
+
+// ── Render ──
+let allCurrentResults = [];
+let currentlyShown = 0;
+let detectedCategory = null;  // Auto-detected from top results
+
+function renderResults(results, title) {
+  const grid = document.getElementById('resultsGrid');
+  grid.innerHTML = '';
+
+  // Clean up old sections
+  const oldLoadMore = document.getElementById('loadMoreSection');
+  if (oldLoadMore) oldLoadMore.remove();
+
+  // Sort all results above minimum 50%
+  allCurrentResults = [...results].sort((a, b) => b.score - a.score).filter(r => r.score >= 50);
+
+  // Get top relevant results using smart threshold
+  const relevant = applySmartThreshold(results);
+
+  document.getElementById('resultsTitle').textContent = title;
+  document.getElementById('resultsSection').classList.remove('hidden');
+  document.getElementById('emptyState').classList.add('hidden');
+
+  if (!relevant.length) {
+    document.getElementById('resultsCount').textContent = '0 matches';
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>No matches found. Try different keywords or category.</p></div>';
+    return;
+  }
+
+  // Detect dominant category from top results
+  const catCounts = {};
+  relevant.forEach(r => {
+    catCounts[r.category] = (catCounts[r.category] || 0) + 1;
+  });
+  detectedCategory = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  // Show relevant results
+  const remaining = allCurrentResults.length - relevant.length;
+  document.getElementById('resultsCount').textContent = `${relevant.length} best matches` + (remaining > 0 ? ` · ${remaining} more available` : '');
+
+  relevant.forEach(r => renderCard(grid, r));
+  currentlyShown = relevant.length;
+
+  // Add Load More + "Show all in category" buttons
+  // Only show these after a SEARCH, not when browsing a category
+  const isSearchResult = lastResults.length > 0;
+
+  const loadHtml = document.createElement('div');
+  loadHtml.id = 'loadMoreSection';
+  loadHtml.style.cssText = 'text-align:center; margin-top:24px; padding-bottom:40px;';
+
+  let buttonsHtml = '';
+
+  // "Show all in category" — only after a search
+  if (detectedCategory && isSearchResult) {
+    buttonsHtml += `
+      <button class="load-more-btn load-category" onclick="showAllInCategory('${detectedCategory}')">
+        Show all in "${detectedCategory}"
+      </button>
+    `;
+  }
+
+  // Standard load more buttons — only after a search
+  if (remaining > 0 && isSearchResult) {
+    buttonsHtml += `
+      <button class="load-more-btn" onclick="loadMore(5)">Load 5 more</button>
+      <button class="load-more-btn load-all" onclick="loadMore(${remaining})">Show all ${remaining}</button>
+    `;
+  }
+
+  if (buttonsHtml) {
+    loadHtml.innerHTML = `
+      <div style="font-size:12px; color:var(--text2); margin-bottom:12px;">
+        ${remaining > 0 ? remaining + ' more search results available' : 'Browse all models in this category'}
+      </div>
+      ${buttonsHtml}
+    `;
+    grid.parentNode.insertBefore(loadHtml, grid.nextSibling);
+  }
+}
+
+// Show all models from a specific category (fetches from API)
+async function showAllInCategory(category) {
+  const grid = document.getElementById('resultsGrid');
+
+  // Remove load more section
+  const loadSection = document.getElementById('loadMoreSection');
+  if (loadSection) loadSection.remove();
+
+  try {
+    const res = await fetch(`${API}/models?category=${encodeURIComponent(category)}`);
+    const d = await res.json();
+
+    // Find models not already shown
+    const shownNames = new Set();
+    document.querySelectorAll('.model-card').forEach(card => {
+      const name = card.querySelector('.name')?.getAttribute('title');
+      if (name) shownNames.add(name);
+    });
+
+    const newModels = d.models.filter(m => !shownNames.has(m.model_name));
+
+    if (newModels.length > 0) {
+      // Add a separator
+      grid.insertAdjacentHTML('beforeend',
+        `<div style="grid-column:1/-1; text-align:center; padding:16px 0 8px; font-size:13px; color:var(--text2); border-top:1px solid var(--border); margin-top:8px;">
+          All other models in "${category}" (${newModels.length})
+        </div>`
+      );
+
+      newModels.forEach(m => {
+        renderCard(grid, {
+          ...m,
+          score: 0,
+          shape_score: 0,
+          text_score: 0,
+          keyword_score: 0,
+        });
+      });
+    }
+
+    document.getElementById('resultsCount').textContent =
+      `${currentlyShown} best matches + ${newModels.length} from "${category}"`;
+
+  } catch(e) { console.error('Failed to load category models:', e); }
+}
+
+function loadMore(count) {
+  const grid = document.getElementById('resultsGrid');
+
+  const loadSection = document.getElementById('loadMoreSection');
+  if (loadSection) loadSection.remove();
+
+  const nextBatch = allCurrentResults.slice(currentlyShown, currentlyShown + count);
+  nextBatch.forEach(r => renderCard(grid, r));
+  currentlyShown += nextBatch.length;
+
+  const remaining = allCurrentResults.length - currentlyShown;
+
+  let buttonsHtml = '';
+  if (detectedCategory) {
+    buttonsHtml += `<button class="load-more-btn load-category" onclick="showAllInCategory('${detectedCategory}')">Show all in "${detectedCategory}"</button>`;
+  }
+  if (remaining > 0) {
+    buttonsHtml += `
+      <button class="load-more-btn" onclick="loadMore(5)">Load 5 more</button>
+      <button class="load-more-btn load-all" onclick="loadMore(${remaining})">Show all ${remaining}</button>
+    `;
+  }
+
+  if (buttonsHtml) {
+    const loadHtml = document.createElement('div');
+    loadHtml.id = 'loadMoreSection';
+    loadHtml.style.cssText = 'text-align:center; margin-top:20px; padding-bottom:40px;';
+    loadHtml.innerHTML = `
+      <div style="font-size:12px; color:var(--text2); margin-bottom:10px;">
+        ${remaining > 0 ? remaining + ' more results remaining' : ''}
+      </div>
+      ${buttonsHtml}
+    `;
+    grid.parentNode.insertBefore(loadHtml, grid.nextSibling);
+  }
+
+  document.getElementById('resultsCount').textContent = `Showing ${currentlyShown} of ${allCurrentResults.length}`;
+}
+
+function renderCard(grid, r) {
+  const sc = r.score >= 70 ? 'score-high' : r.score >= 55 ? 'score-mid' : 'score-low';
+  const thumb = r.thumbnail ? API + r.thumbnail : '';
+  const tags = (r.tags || []).slice(0, 4).map(t => `<span class="tag">${t}</span>`).join('');
+  const blend = r.blend_file ? r.blend_file.split('/').pop().split('\\').pop() : r.model_name + '.blend';
+
+  const shp = r.shape_score || 0;
+  const txt = r.text_score || 0;
+  const kw = r.keyword_score || 0;
+  const total = Math.max(shp + txt + kw, 1);
+
+  grid.innerHTML += `
+    <div class="model-card" onclick="openModal('${r.model_name}')">
+      <img class="thumb" src="${thumb}" alt="${r.model_name}" onerror="this.style.background='var(--surface2)'">
+      <div class="info">
+        <div class="name" title="${r.model_name}">${r.model_name.replace(/_/g, ' ')}</div>
+        <div class="blend-file">${blend}</div>
+        <div class="meta">
+          <span class="score ${sc}">${r.score}%</span>
+          <span class="category-tag">${r.category}</span>
+        </div>
+        <div class="score-breakdown" title="Shape: ${shp}% | Text: ${txt}% | Keywords: ${kw}%">
+          <div class="sb-bar sb-shape" style="width: ${(shp/total)*100}%; min-width: ${shp?'2px':'0'};"></div>
+          <div class="sb-bar sb-text" style="width: ${(txt/total)*100}%; min-width: ${txt?'2px':'0'};"></div>
+          <div class="sb-bar sb-kw" style="width: ${(kw/total)*100}%; min-width: ${kw?'2px':'0'};"></div>
+        </div>
+        <div class="tags-row">${tags}</div>
+      </div>
+    </div>`;
+}
+
+// ── Modal ──
+async function openModal(name) {
+  try {
+    const res = await fetch(`${API}/model/${name}`);
+    const d = await res.json();
+    document.getElementById('modalTitle').textContent = name.replace(/_/g, ' ');
+    document.getElementById('modalBlend').textContent = (d.blend_file || name + '.blend').split('/').pop().split('\\').pop();
+    document.getElementById('modalDesc').textContent = d.description || 'No description.';
+    const meta = document.getElementById('modalMeta');
+    meta.innerHTML = `<span class="category-tag">${d.category}</span>`;
+    (d.tags || []).forEach(t => meta.innerHTML += `<span class="tag">${t}</span>`);
+    const vg = document.getElementById('modalViewsGrid');
+    vg.innerHTML = '';
+    const thumbs = d.thumbnails || [];
+    if (thumbs.length) document.getElementById('modalMainImg').src = API + thumbs[0];
+    thumbs.forEach((t, i) => {
+      const vn = t.split('/').pop().replace('.png','').replace(name+'_','');
+      vg.innerHTML += `<div><img class="view-thumb ${i===0?'active':''}" src="${API+t}" onclick="selView(this,'${API+t}')" onerror="this.style.background='var(--surface2)'"><div class="view-name">${vn}</div></div>`;
+    });
+    document.getElementById('modalOverlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  } catch(e) {}
+}
+function selView(el, url) {
+  document.getElementById('modalMainImg').src = url;
+  document.querySelectorAll('.view-thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+function showLoading() { document.getElementById('loading').classList.remove('hidden'); document.getElementById('resultsSection').classList.add('hidden'); document.getElementById('emptyState').classList.add('hidden'); }
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+</script>
+</body>
+</html>
